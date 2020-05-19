@@ -1,0 +1,94 @@
+version: '3.6'
+services:
+  broker:
+    hostname: kaiyang.kafka2
+    container_name: KAFKA_BROKER_${NODE_ID}
+    image: confluentinc/cp-kafka:5.2.2
+    restart: always
+    labels:
+      - "kafka.id=${NODE_ID}"
+    ports:
+      - "${KAFKA_PORT}:9092"
+    expose:
+      - "${KAFKA_PORT}"
+    environment:
+      TZ: Asia/Bangkok
+      KAFKA_BROKER_ID: ${NODE_ID}
+      KAFKA_ZOOKEEPER_CONNECT: kaiyang.kafka1:${ZK_PORT},kaiyang.kafka2:${ZK_PORT},kaiyang.kafka3:${ZK_PORT}
+      KAFKA_LISTENERS: LISTENER_PLAIN://0.0.0.0:${KAFKA_PORT}
+      KAFKA_ADVERTISED_LISTENERS: LISTENER_PLAIN://kaiyang.kafka2:${KAFKA_PORT}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: LISTENER_PLAIN:PLAINTEXT,LISTENER_SASL:SASL_PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: LISTENER_PLAIN
+      KAFKA_SOCKET_REQUEST_MAX_BYTES: 104857600
+      KAFKA_HEAP_OPTS: "-Xms1g -Xmx1g"
+      KAFKA_CONFLUENT_SUPPORT_METRICS_ENABLE: "false"
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_NUM_PARTITIONS: 8
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_METADATA_MAX_AGE_MS: 180000
+      KAFKA_MIN_INSYNC_REPLICAS: 1
+      KAFKA_NUM_REPLICA_FETCHERS: 2
+      ## ---
+      ## Optimize
+      ## ---
+      ## PRODUCER
+      ## ---
+      KAFKA_BATCH_SIZE: 200000
+      KAFKA_LINGER_MS: 0
+      KAFKA_ACKS: 1
+      KAFKA_BUFFER_MEMORY: 134217728  # 128 MB
+      KAFKA_UNCLEAN_LEADER_ELECTION_ENABLE: "true"
+      KAFKA_ENABLE_IDEMPOTENCE: "true"
+      KAFKA_MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION: 1
+      ## ---
+      ## CONSUMER
+      ## ---
+      KAFKA_FETCH_MIN_BYTES: 1
+      KAFKA_ENABLE_AUTO_COMMIT: "false"
+      KAFKA_SESSION_TIMEOUT_MS: 5000
+
+      ## --- flush if message equal to 10000000
+      KAFKA_LOG_FLUSH_INTERVAL_MESSAGE: 10000000
+      ## Which one above or below
+      ## --- flush if interval time equal to 60000 ms
+      #KAFKA_LOG_FLUST_INTERVAL_MS: 60000
+      ## ---
+      KAFKA_LOG_RETENTION_HOURS: 72 # 3 days
+      ## ---
+      ## AUTH Basic authen
+      ## ---
+      # KAFKA_SASL_ENABLED_MECHANISMS: PLAIN
+      # KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: PLAIN
+      # KAFKA_AUTHENTICATION_METHOD: BASIC
+      # KAFKA_AUTHENTICATION_REALM: KafkaServer
+      # KAFKA_AUTHENTICATION_ROLES: kafkauser
+      # KAFKA_OPTS: "-Djava.security.auth.login.config=/etc/kafka/kafka_jaas.conf"
+    volumes:
+      # - "./kafka_jaas.conf:/etc/kafka/kafka_jaas.conf"
+      - "/data/kafka/data:/var/lib/kafka/data"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:${KAFKA_PORT} || exit 1"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    network_mode: host
+    extra_hosts:
+      - "kaiyang.kafka1:35.186.156.45"
+      - "kaiyang.kafka2:34.87.4.124"
+      - "kaiyang.kafka3:34.87.126.150"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: "262144"
+        hard: "262144"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1G"
+        max-file: "2"
